@@ -1,0 +1,33 @@
+{
+  "name": "brand-to-deck-ai",
+  "version": "1.0.0",
+  "description": "Aplicación web para generar presentaciones de PowerPoint con formato corporativo a partir de texto simple",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "powerpoint",
+    "pptx",
+    "presentations",
+    "corporate",
+    "branding",
+    "ai",
+    "automation"
+  ],
+  "author": "Manus AI",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
