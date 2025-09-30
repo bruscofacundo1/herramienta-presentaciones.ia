@@ -142,4 +142,61 @@ Información de contacto y próximos pasos.`
   });
 }));
 
+// Ruta para prueba simple de generación
+router.post('/test-simple', asyncHandler(async (req, res) => {
+  try {
+    console.log("🧪 Iniciando prueba simple de generación...");
+    
+    const PptxGenJS = require("pptxgenjs");
+    let pptx = new PptxGenJS();
+    
+    console.log("✅ PptxGenJS inicializado para prueba");
+    
+    pptx.addSlide().addText("Hola Mundo! - Prueba Exitosa", { 
+      x: 1.5, 
+      y: 1.5, 
+      fontSize: 18, 
+      color: "363636" 
+    });
+    
+    console.log("✅ Diapositiva de prueba creada");
+    
+    const fileName = `test-simple-${Date.now()}.pptx`;
+    const filePath = `./generated/${fileName}`;
+    
+    // Asegurar directorio
+    const fs = require("fs-extra");
+    await fs.ensureDir("./generated");
+    
+    await pptx.writeFile({ fileName: filePath });
+    
+    console.log("✅ Archivo de prueba guardado en:", filePath);
+    
+    // Verificar archivo
+    const exists = await fs.pathExists(filePath);
+    if (!exists) {
+      throw new Error('No se pudo crear el archivo de prueba');
+    }
+    
+    const stats = await fs.stat(filePath);
+    
+    res.status(200).json({
+      success: true,
+      message: "Test simple completado exitosamente",
+      filePath: filePath,
+      fileName: fileName,
+      fileSize: stats.size,
+      fileSizeFormatted: `${(stats.size / 1024).toFixed(2)} KB`
+    });
+    
+  } catch (error) {
+    console.error("❌ Error en test simple:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      stack: error.stack
+    });
+  }
+}));
+
 module.exports = router;

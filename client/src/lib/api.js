@@ -23,7 +23,7 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
     
     const config = {
-      signal: AbortSignal.timeout(600000), // 10 minutos de timeout para solicitudes largas
+      signal: AbortSignal.timeout(1200000), // 20 minutos de timeout para solicitudes largas
 
       headers: {
         'Content-Type': 'application/json',

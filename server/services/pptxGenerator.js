@@ -27,20 +27,41 @@ class PPTXGeneratorService {
    */
   async generatePresentation(contentData, brandConfig) {
     try {
+      console.log("🚀 Iniciando generación de presentación...");
+      console.log("📊 Datos recibidos:", JSON.stringify(contentData, null, 2));
+      console.log("🎨 Configuración de marca:", JSON.stringify(brandConfig, null, 2));
+      
+      // Verificar que existe el directorio de salida
+      await fs.ensureDir(this.outputDir);
+      console.log("✅ Directorio de salida verificado:", this.outputDir);
+      
       // Crear nueva presentación
       const pptx = new PptxGenJS();
+      console.log("✅ PptxGenJS inicializado correctamente");
       
       // Configurar presentación
       this.configurePresentationSettings(pptx, brandConfig);
+      console.log("✅ Configuración de presentación aplicada");
       
       // Definir Slide Master personalizado
       this.defineBrandSlideMaster(pptx, brandConfig);
+      console.log("✅ Slide Master definido");
       
       // Generar diapositivas basadas en contenido
       await this.generateSlides(pptx, contentData, brandConfig);
+      console.log("✅ Diapositivas generadas");
       
       // Guardar archivo
+      console.log("💾 Guardando presentación...");
       const filePath = await this.savePresentation(pptx, contentData.title || "Presentación");
+      console.log("✅ Archivo guardado en:", filePath);
+      
+      // Verificar que el archivo existe
+      const exists = await fs.pathExists(filePath);
+      if (!exists) {
+        throw new Error('El archivo PPTX no se creó correctamente');
+      }
+      console.log("✅ Verificación de archivo completada");
       
       return {
         success: true,
@@ -55,7 +76,8 @@ class PPTXGeneratorService {
       };
 
     } catch (error) {
-      console.error("Error al generar presentación:", error);
+      console.error("❌ Error detallado en generación:", error);
+      console.error("Stack trace:", error.stack);
       throw createError(`Error en generación PPTX: ${error.message}`, 500);
     }
   }
@@ -64,6 +86,8 @@ class PPTXGeneratorService {
    * Configurar ajustes generales de la presentación
    */
   configurePresentationSettings(pptx, brandConfig) {
+    console.log("⚙️ Configurando ajustes de presentación...");
+    
     // Configurar tamaño de diapositiva
     pptx.layout = this.defaultSlideSize;
     
@@ -72,19 +96,26 @@ class PPTXGeneratorService {
     pptx.company = brandConfig.brand_name || "Empresa";
     pptx.title = "Presentación Corporativa";
     pptx.subject = "Generada automáticamente con Brand-to-Deck AI";
+    
+    console.log("✅ Ajustes configurados");
   }
 
   /**
    * Definir Slide Master personalizado basado en la marca
    */
   defineBrandSlideMaster(pptx, brandConfig) {
-    const primaryColor = brandConfig.colors.find(c => c.type === 'primary')?.hex || "0066CC";
-    const accentColor = brandConfig.colors.find(c => c.type === 'accent')?.hex || "FF6600";
-    const backgroundColor = brandConfig.colors.find(c => c.type === 'background')?.hex || "FFFFFF";
-    const textColor = brandConfig.colors.find(c => c.type === 'text')?.hex || "333333";
+    console.log("🎨 Definiendo Slide Master...");
+    
+    const primaryColor = brandConfig.colors?.find(c => c.type === 'primary')?.hex || "0066CC";
+    const accentColor = brandConfig.colors?.find(c => c.type === 'accent')?.hex || "FF6600";
+    const backgroundColor = brandConfig.colors?.find(c => c.type === 'background')?.hex || "FFFFFF";
+    const textColor = brandConfig.colors?.find(c => c.type === 'text')?.hex || "333333";
 
-    const headingFont = brandConfig.typography.find(t => t.element === 'title')?.font_family || "Arial";
-    const bodyFont = brandConfig.typography.find(t => t.element === 'paragraph')?.font_family || "Arial";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title')?.font_family || "Arial";
+    const bodyFont = brandConfig.typography?.find(t => t.element === 'paragraph')?.font_family || "Arial";
+
+    console.log("🎨 Colores detectados:", { primaryColor, accentColor, backgroundColor, textColor });
+    console.log("🔤 Fuentes detectadas:", { headingFont, bodyFont });
 
     // Master principal para diapositivas de contenido
     pptx.defineSlideMaster({
@@ -179,16 +210,22 @@ class PPTXGeneratorService {
         }
       ]
     });
+    
+    console.log("✅ Slide Master definido correctamente");
   }
 
   /**
    * Generar diapositivas basadas en el contenido
    */
   async generateSlides(pptx, contentData, brandConfig) {
+    console.log("📄 Generando diapositivas...");
+    
     const slides = contentData.slides || [];
+    console.log(`📊 Se generarán ${slides.length} diapositivas`);
     
     for (let i = 0; i < slides.length; i++) {
       const slideData = slides[i];
+      console.log(`📄 Generando diapositiva ${i + 1}: ${slideData.type} - ${slideData.title}`);
       
       switch (slideData.type) {
         case 'title':
@@ -210,6 +247,8 @@ class PPTXGeneratorService {
           this.createContentSlide(pptx, slideData, brandConfig);
       }
     }
+    
+    console.log("✅ Todas las diapositivas generadas");
   }
 
   /**
@@ -217,9 +256,9 @@ class PPTXGeneratorService {
    */
   createTitleSlide(pptx, slideData, brandConfig) {
     const slide = pptx.addSlide({ masterName: "BRAND_TITLE_MASTER" });
-    const backgroundColor = brandConfig.colors.find(c => c.type === 'background')?.hex || "FFFFFF";
-    const headingFont = brandConfig.typography.find(t => t.element === 'title');
-    const subtitleFont = brandConfig.typography.find(t => t.element === 'subtitle');
+    const backgroundColor = brandConfig.colors?.find(c => c.type === 'background')?.hex || "FFFFFF";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title');
+    const subtitleFont = brandConfig.typography?.find(t => t.element === 'subtitle');
 
     // Título principal
     slide.addText(slideData.title || "Título Principal", {
@@ -246,9 +285,9 @@ class PPTXGeneratorService {
    */
   createSectionSlide(pptx, slideData, brandConfig) {
     const slide = pptx.addSlide({ masterName: "BRAND_TITLE_MASTER" });
-    const backgroundColor = brandConfig.colors.find(c => c.type === 'background')?.hex || "FFFFFF";
-    const headingFont = brandConfig.typography.find(t => t.element === 'title');
-    const paragraphFont = brandConfig.typography.find(t => t.element === 'paragraph');
+    const backgroundColor = brandConfig.colors?.find(c => c.type === 'background')?.hex || "FFFFFF";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title');
+    const paragraphFont = brandConfig.typography?.find(t => t.element === 'paragraph');
 
     // Título de sección
     slide.addText(slideData.title || "Nueva Sección", {
@@ -275,10 +314,10 @@ class PPTXGeneratorService {
    */
   createContentSlide(pptx, slideData, brandConfig) {
     const slide = pptx.addSlide({ masterName: "BRAND_MASTER" });
-    const primaryColor = brandConfig.colors.find(c => c.type === 'primary')?.hex || "0066CC";
-    const textColor = brandConfig.colors.find(c => c.type === 'text')?.hex || "333333";
-    const headingFont = brandConfig.typography.find(t => t.element === 'title');
-    const paragraphFont = brandConfig.typography.find(t => t.element === 'paragraph');
+    const primaryColor = brandConfig.colors?.find(c => c.type === 'primary')?.hex || "0066CC";
+    const textColor = brandConfig.colors?.find(c => c.type === 'text')?.hex || "333333";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title');
+    const paragraphFont = brandConfig.typography?.find(t => t.element === 'paragraph');
 
     // Título de la diapositiva
     slide.addText(slideData.title || "Contenido", {
@@ -312,10 +351,10 @@ class PPTXGeneratorService {
    */
   createBulletSlide(pptx, slideData, brandConfig) {
     const slide = pptx.addSlide({ masterName: "BRAND_MASTER" });
-    const primaryColor = brandConfig.colors.find(c => c.type === 'primary')?.hex || "0066CC";
-    const textColor = brandConfig.colors.find(c => c.type === 'text')?.hex || "333333";
-    const headingFont = brandConfig.typography.find(t => t.element === 'title');
-    const paragraphFont = brandConfig.typography.find(t => t.element === 'paragraph');
+    const primaryColor = brandConfig.colors?.find(c => c.type === 'primary')?.hex || "0066CC";
+    const textColor = brandConfig.colors?.find(c => c.type === 'text')?.hex || "333333";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title');
+    const paragraphFont = brandConfig.typography?.find(t => t.element === 'paragraph');
 
     // Título
     slide.addText(slideData.title || "Puntos Clave", {
@@ -351,11 +390,11 @@ class PPTXGeneratorService {
    */
   createImageSlide(pptx, slideData, brandConfig) {
     const slide = pptx.addSlide({ masterName: "BRAND_MASTER" });
-    const primaryColor = brandConfig.colors.find(c => c.type === 'primary')?.hex || "0066CC";
-    const secondaryColor = brandConfig.colors.find(c => c.type === 'secondary')?.hex || "F5F5F5";
-    const textColor = brandConfig.colors.find(c => c.type === 'text')?.hex || "666666";
-    const headingFont = brandConfig.typography.find(t => t.element === 'title');
-    const paragraphFont = brandConfig.typography.find(t => t.element === 'paragraph');
+    const primaryColor = brandConfig.colors?.find(c => c.type === 'primary')?.hex || "0066CC";
+    const secondaryColor = brandConfig.colors?.find(c => c.type === 'secondary')?.hex || "F5F5F5";
+    const textColor = brandConfig.colors?.find(c => c.type === 'text')?.hex || "666666";
+    const headingFont = brandConfig.typography?.find(t => t.element === 'title');
+    const paragraphFont = brandConfig.typography?.find(t => t.element === 'paragraph');
 
     // Título
     slide.addText(slideData.title || "Imagen", {
@@ -410,8 +449,11 @@ class PPTXGeneratorService {
    * Guardar presentación en archivo
    */
   async savePresentation(pptx, title) {
+    console.log("💾 Iniciando guardado de archivo...");
+    
     // Asegurar que existe el directorio de salida
     await fs.ensureDir(this.outputDir);
+    console.log("✅ Directorio asegurado:", this.outputDir);
     
     // Generar nombre de archivo único
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -419,16 +461,24 @@ class PPTXGeneratorService {
     const sanitizedTitle = title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
     const fileName = `${timestamp}_${uniqueId}_${sanitizedTitle}.pptx`;
     const filePath = path.join(this.outputDir, fileName);
+    
+    console.log("📁 Nombre de archivo:", fileName);
+    console.log("📂 Ruta completa:", filePath);
 
     // Guardar archivo
     await pptx.writeFile({ fileName: filePath });
+    console.log("✅ Archivo escrito en disco");
     
     // Verificar que el archivo se creó correctamente
     const exists = await fs.pathExists(filePath);
     if (!exists) {
-      throw createError('Error al guardar el archivo PPTX', 500);
+      throw new Error('Error al guardar el archivo PPTX');
     }
-
+    
+    // Obtener información del archivo
+    const stats = await fs.stat(filePath);
+    console.log("✅ Archivo verificado, tamaño:", stats.size, "bytes");
+    
     return filePath;
   }
 
@@ -436,12 +486,17 @@ class PPTXGeneratorService {
    * Parsear contenido estructurado de texto o prompt natural
    */
   parseStructuredContent(textContent) {
+    console.log("🔍 Parseando contenido estructurado...");
+    console.log("📝 Contenido recibido:", textContent);
+    
     // Si el contenido parece ser un prompt natural (no tiene estructura de markdown)
     if (!textContent.includes('#') && !textContent.includes('-') && !textContent.includes('*')) {
+      console.log("🤖 Detectado prompt natural, usando parser de IA");
       return this.parseNaturalPrompt(textContent);
     }
 
     // Parsear contenido estructurado tradicional
+    console.log("📋 Parseando contenido estructurado (markdown)");
     const lines = textContent.split('\n').filter(line => line.trim());
     const slides = [];
     let currentSlide = null;
@@ -486,6 +541,8 @@ class PPTXGeneratorService {
       slides.push(currentSlide);
     }
 
+    console.log("✅ Parseo completado, diapositivas generadas:", slides.length);
+    
     return {
       title: slides[0]?.title || 'Presentación',
       slides: slides
@@ -496,10 +553,18 @@ class PPTXGeneratorService {
    * Parsear prompt natural y convertirlo en estructura de presentación
    */
   parseNaturalPrompt(prompt) {
+    console.log("🤖 Parseando prompt natural...");
+    console.log("📝 Prompt:", prompt);
+    
     // Extraer información del prompt
     const title = this.extractTitleFromPrompt(prompt);
+    console.log("📝 Título extraído:", title);
+    
     const slideCount = this.extractSlideCountFromPrompt(prompt);
+    console.log("📊 Número de diapositivas:", slideCount);
+    
     const topic = this.extractTopicFromPrompt(prompt);
+    console.log("🎯 Tema extraído:", topic);
     
     // Generar estructura básica de diapositivas
     const slides = [];
@@ -515,6 +580,8 @@ class PPTXGeneratorService {
     // Generar diapositivas de contenido basadas en el tema
     const contentSlides = this.generateContentSlidesFromTopic(topic, slideCount - 1);
     slides.push(...contentSlides);
+
+    console.log("✅ Estructura generada:", slides.length, "diapositivas");
 
     return {
       title: title,
@@ -683,4 +750,3 @@ class PPTXGeneratorService {
 }
 
 module.exports = { PPTXGeneratorService };
-
