@@ -4,45 +4,125 @@ const express = require('express');
 const router = express.Router();
 const asyncHandler = require('express-async-handler');
 const { PPTXGeneratorService } = require('../services/pptxGenerator');
+const { AIContentGenerator } = require('../services/aiContentGenerator');
 const createError = require('../utils/create-error');
 
 // Instancia del generador de presentaciones
 const pptxGenerator = new PPTXGeneratorService();
+// Instancia del generador de contenido con IA
+const aiContentGenerator = new AIContentGenerator();
 
 // Ruta para generar una presentación
 router.post('/generate', asyncHandler(async (req, res) => {
   const { content, brandConfig, options = {} } = req.body;
 
+  console.log('🚀 Recibida petición de generación de presentación');
+  console.log('📝 Contenido recibido:', typeof content, content ? 'presente' : 'ausente');
+  console.log('🎯 Configuración de marca:', typeof brandConfig, brandConfig ? 'presente' : 'ausente');
+  console.log('📋 Datos del body completo:', JSON.stringify({ 
+    contentLength: content?.length || 0, 
+    brandConfigKeys: brandConfig ? Object.keys(brandConfig) : [],
+    options 
+  }, null, 2));
+
   // Validar datos requeridos
+  if (!content && !options.prompt) {
+    console.error('❌ Error: Contenido o prompt requerido para generar presentación');
+    return res.status(400).json({
+      success: false,
+      error: 'Contenido o prompt requerido para generar presentación'
+    });
+  }
+
   if (!brandConfig) {
-    throw createError('Configuración de marca requerida', 400);
+    console.error('❌ Error: Configuración de marca requerida');
+    return res.status(400).json({
+      success: false,
+      error: 'Configuración de marca requerida'
+    });
   }
 
-  console.log('🎨 Generando presentación PPTX...');
+  console.log('🎨 Iniciando generación de presentación PPTX...');
+  console.log('🔍 Verificando instancia del generador:', pptxGenerator ? 'OK' : 'ERROR');
   
-  let parsedContent;
-  
-  // Si hay contenido, parsearlo
-  if (content) {
-    parsedContent = pptxGenerator.parseStructuredContent(content);
+  try {
+    let presentationContent = content;
+    let useAI = false;
+    
+    // Si no hay contenido pero hay prompt en options, usar el prompt como contenido para IA
+    if (!content && options.prompt) {
+      console.log('🤖 Detectado prompt en options, usando para generación con IA...');
+      presentationContent = options.prompt;
+      useAI = true;
+    }
+    // Si el contenido es un string (prompt), usar IA para generar contenido estructurado
+    else if (typeof content === 'string' && options.useAI !== false) {
+      console.log('🤖 Detectado prompt de texto, iniciando generación de contenido con IA...');
+      console.log('🔍 Paso 1: Analizando prompt...');
+      useAI = true;
+    } else {
+      console.log('📄 Usando contenido estructurado proporcionado');
+    }
+    
+    // Si se debe usar IA, generar contenido estructurado
+    if (useAI) {
+      try {
+        // Generar contenido estructurado con IA
+        presentationContent = await aiContentGenerator.generatePresentationContent(presentationContent);
+        console.log('✅ Contenido generado con IA exitosamente');
+        console.log('📊 Estructura generada:', {
+          title: presentationContent.title,
+          slidesCount: presentationContent.slides?.length || 0
+        });
+      } catch (aiError) {
+        console.error('❌ Error en generación de contenido con IA:', aiError.message);
+        console.log('🔄 Continuando con contenido original...');
+        // Si falla la IA, continuar con el contenido original
+        presentationContent = {
+          title: presentationContent,
+          slides: [
+            {
+              type: 'title',
+              title: presentationContent,
+              subtitle: 'Generado automáticamente'
+            }
+          ]
+        };
+      }
+    }
+    
+    console.log('📞 Llamando a pptxGenerator.generatePresentation...');
+    
+    // Agregar timeout para evitar colgado infinito
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout: La generación tardó más de 30 segundos')), 30000);
+    });
+    
+    const generationPromise = pptxGenerator.generatePresentation(presentationContent, brandConfig);
+    
+    console.log('⏳ Esperando resultado de la generación...');
+    const result = await Promise.race([generationPromise, timeoutPromise]);
+    
+    console.log('✅ Presentación generada exitosamente');
+    console.log('📊 Resultado:', JSON.stringify(result, null, 2));
+    
+    res.status(200).json({
+      success: true,
+      message: 'Presentación generada exitosamente',
+      aiGenerated: useAI,
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en la generación:', error.message);
+    console.error('📍 Stack trace:', error.stack);
+    
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
-  // Si hay un prompt en las opciones, usarlo
-  else if (options.prompt) {
-    parsedContent = pptxGenerator.parseStructuredContent(options.prompt);
-  }
-  // Si no hay contenido ni prompt, error
-  else {
-    throw createError('Contenido o prompt requerido para generar presentación', 400);
-  }
-
-  // Generar presentación
-  const result = await pptxGenerator.generatePresentation(parsedContent, brandConfig);
-
-  res.status(200).json({
-    success: true,
-    message: 'Presentación generada exitosamente',
-    ...result
-  });
 }));
 
 // Ruta para obtener vista previa de presentación
@@ -140,63 +220,6 @@ Información de contacto y próximos pasos.`
     success: true,
     templates
   });
-}));
-
-// Ruta para prueba simple de generación
-router.post('/test-simple', asyncHandler(async (req, res) => {
-  try {
-    console.log("🧪 Iniciando prueba simple de generación...");
-    
-    const PptxGenJS = require("pptxgenjs");
-    let pptx = new PptxGenJS();
-    
-    console.log("✅ PptxGenJS inicializado para prueba");
-    
-    pptx.addSlide().addText("Hola Mundo! - Prueba Exitosa", { 
-      x: 1.5, 
-      y: 1.5, 
-      fontSize: 18, 
-      color: "363636" 
-    });
-    
-    console.log("✅ Diapositiva de prueba creada");
-    
-    const fileName = `test-simple-${Date.now()}.pptx`;
-    const filePath = `./generated/${fileName}`;
-    
-    // Asegurar directorio
-    const fs = require("fs-extra");
-    await fs.ensureDir("./generated");
-    
-    await pptx.writeFile({ fileName: filePath });
-    
-    console.log("✅ Archivo de prueba guardado en:", filePath);
-    
-    // Verificar archivo
-    const exists = await fs.pathExists(filePath);
-    if (!exists) {
-      throw new Error('No se pudo crear el archivo de prueba');
-    }
-    
-    const stats = await fs.stat(filePath);
-    
-    res.status(200).json({
-      success: true,
-      message: "Test simple completado exitosamente",
-      filePath: filePath,
-      fileName: fileName,
-      fileSize: stats.size,
-      fileSizeFormatted: `${(stats.size / 1024).toFixed(2)} KB`
-    });
-    
-  } catch (error) {
-    console.error("❌ Error en test simple:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      stack: error.stack
-    });
-  }
 }));
 
 module.exports = router;

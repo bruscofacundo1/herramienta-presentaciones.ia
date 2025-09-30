@@ -486,12 +486,16 @@ class PPTXGeneratorService {
    * Parsear contenido estructurado de texto o prompt natural
    */
   parseStructuredContent(textContent) {
-    console.log("🔍 Parseando contenido estructurado...");
+    console.log("🔍 Parseando contenido...");
     console.log("📝 Contenido recibido:", textContent);
     
     // Si el contenido parece ser un prompt natural (no tiene estructura de markdown)
     if (!textContent.includes('#') && !textContent.includes('-') && !textContent.includes('*')) {
-      console.log("🤖 Detectado prompt natural, usando parser de IA");
+      console.log("🤖 Detectado prompt natural, usando IA para generar contenido");
+      
+      // Usar la versión asíncrona - esto requiere cambios en el flujo
+      // Por ahora, usamos el método tradicional pero lo marcamos para upgrade
+      console.log("⚠️  Nota: Para usar IA, el flujo necesita ser asíncrono");
       return this.parseNaturalPrompt(textContent);
     }
 
@@ -588,6 +592,34 @@ class PPTXGeneratorService {
       slides: slides,
       originalPrompt: prompt
     };
+  }
+
+  /**
+   * Parsear prompt natural usando IA para generar contenido real
+   */
+  async parseNaturalPromptWithAI(prompt) {
+    console.log("🤖 Iniciando generación de contenido con IA...");
+    
+    try {
+      // Importar el generador de contenido con IA
+      const { AIContentGenerator } = require('./aiContentGenerator');
+      const aiGenerator = new AIContentGenerator();
+      
+      // Generar contenido con IA
+      const aiResult = await aiGenerator.generatePresentationContent(prompt);
+      
+      if (aiResult.success) {
+        console.log("✅ Contenido generado con IA exitosamente");
+        return aiResult.content;
+      } else {
+        throw new Error('No se pudo generar contenido con IA');
+      }
+      
+    } catch (error) {
+      console.error("❌ Error en generación con IA, usando método tradicional:", error);
+      // Fallback al método tradicional si falla la IA
+      return this.parseNaturalPrompt(prompt);
+    }
   }
 
   /**
